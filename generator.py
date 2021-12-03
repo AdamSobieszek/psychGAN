@@ -15,21 +15,12 @@ import os
 
 
 class Generator():
-    def __init__(self, network_pkl, direction_name, coefficient, truncation, n_levels, n_photos, type_of_preview,
-                 result_dir, generator_number=1):
+    def __init__(self, direction_name, coefficient, truncation, n_levels, result_dir, generator_number=1):
         self.no_generator = generator_number
         self.coefficient = coefficient  # Siła manipluacji / przemnożenie wektora
         self._truncation = truncation  # Parametr stylegan "jak różnorodne twarze"
         self.n_levels = n_levels  # liczba poziomów manipulacji 1-3
-        self.n_photos = n_photos  # Ile zdjęć wygenerować
-        if type(network_pkl) is str:
-            self._G, self._D, self.Gs = load_networks(network_pkl)
-        else:
-            self.Gs = network_pkl
-        self.preview_face = self.__create_coordinates(1)  # Array z koordynatami twarzy na podglądzie 1
-        self.preview_3faces = self.__create_coordinates(3)  # Array z koordynatami twarzy na podglądzie 3
         self.synthesis_kwargs = {}  # Keyword arguments które przyjmuje stylegan
-        self.type_of_preview = type_of_preview  # Typ podglądu, wartości: "3_faces", "manipulation" w zależności od tego które ustawienia są zmieniane
         self.dir = {"results": Path(result_dir + str(self.no_generator)),
                     "images": Path(result_dir + str(self.no_generator)) / 'images',
                     "thumbnails": Path(result_dir + str(self.no_generator)) / 'thumbnails',
@@ -73,23 +64,10 @@ class Generator():
             self.direction = np.load(direction_name)
             self.__direction_name = direction_name.split("/")[-1].replace(".npy", '')
 
-    def refresh_preview(self):
-        """Przełączniki co wywołać w zależności od wartości type_of_preview"""
-        if self.type_of_preview == "manipulation":
-            return self.__generate_preview_face_manip()
-        else:
-            return self.__generate_preview_3faces()
-
     def __create_coordinates(self, n_photos):
         all_z = np.random.randn(n_photos, *self.Gs.input_shape[1:])
         all_w = self.__map_vectors(all_z)
         return self.__truncate_vectors(all_w)
-
-    def change_face(self):
-        if self.type_of_preview == "manipulation":
-            self.preview_face = self.__create_coordinates(1)
-        else:
-            self.preview_3faces = self.__create_coordinates(3)
 
     def __save_image(self, face, face_no, condition):  # Dodać kilka folderów wynikowych
         image_pil = PIL.Image.fromarray(face, 'RGB')
@@ -133,36 +111,11 @@ class Generator():
                     filePath = os.path.join(folderName, filename)
                     zipObj.write(filePath, filePath)
 
-    def __generate_preview_face_manip(self):
-        """Zwraca array ze zdjeciem, sklejonymi 3 twarzami: w środku neutralna, po bokach zmanipulowana"""
-        self.__set_synthesis_kwargs(minibatch_size=3)
-        all_w = self.preview_face.copy()
-
-        all_w = np.array([all_w[0], all_w[0], all_w[0]])  # Przygotowujemy miejsca na twarze zmanipulowane
-
-        # Przesunięcie twarzy o wektor (już rozwinięty w 18)
-        all_w[0][0:8] = (all_w[0] - self.coefficient * self.direction)[0:8]
-        all_w[2][0:8] = (all_w[2] + self.coefficient * self.direction)[0:8]
-
-        all_images = self.Gs.components.synthesis.run(all_w, **self.synthesis_kwargs)
-
-        return np.hstack(all_images)
-
-    def __generate_preview_3faces(self):
-        """__generate_preview_face_manip tylko że używa zmiennej preview_3faces zamiast preview_face"""
-        self.__set_synthesis_kwargs(minibatch_size=3)
-        all_w = self.preview_3faces.copy()
-
-        all_images = self.Gs.components.synthesis.run(all_w, **self.synthesis_kwargs)
-
-        return np.hstack(all_images)
 
     def __tile_vector(self, faces_w):
         """Przyjmuje listę 512-wymierowych wektorów twarzy i rozwija je w taki które przyjmuje generator"""
         return np.array([np.tile(face, (18, 1)) for face in faces_w])
 
-    def __generate_preview_face_face_3(self):
-        """__generate_preview_face_manip tylko że używa zmiennej preview_3faces zamist preview_face"""
 
     def __map_vectors(self, faces_z):
         """Przyjmuje array wektorów z koordynatami twarzy w Z-space, gdzie losowane są wektory,
@@ -189,13 +142,61 @@ class Generator():
 
 class Generator2(Generator):
     """Generator który działa ze styleGANem2, ale bez części graficznych"""
-    def __init__(self):
-        pass
+    def __init__(self, network_pkl):
+        super().__init__()
+        if type(network_pkl) is str:
+            self._G, self._D, self.Gs = load_networks(network_pkl)
+        else:
+            self.Gs = network_pkl
 
 class GeneratorGraficzny(Generator):
     """Działa tak jak to wyżej, czyli nie usuwamy żadnego kodu tylko przeklejamy nieważne metody tutaj"""
-    def __init__(self):
-        pass
+    def __init__(self, n_photos, type_of_preview):
+        super().__init__()
+        self.n_photos = n_photos  # Ile zdjęć wygenerować
+        self.preview_face = super().__create_coordinates(1)  # Array z koordynatami twarzy na podglądzie 1
+        self.preview_3faces = super().__create_coordinates(3)  # Array z koordynatami twarzy na podglądzie 3
+        self.type_of_preview = type_of_preview  # Typ podglądu, wartości: "3_faces", "manipulation" w zależności od tego które ustawienia są zmieniane
+
+    def refresh_preview(self):
+        """Przełączniki co wywołać w zależności od wartości type_of_preview"""
+        if self.type_of_preview == "manipulation":
+            return self.__generate_preview_face_manip()
+        else:
+            return self.__generate_preview_3faces()
+
+    def change_face(self):
+        if self.type_of_preview == "manipulation":
+            self.preview_face = super().__create_coordinates(1)
+        else:
+            self.preview_3faces = super().__create_coordinates(3)
+
+    def __generate_preview_face_manip(self):
+        """Zwraca array ze zdjeciem, sklejonymi 3 twarzami: w środku neutralna, po bokach zmanipulowana"""
+        super().__set_synthesis_kwargs(minibatch_size=3)
+        all_w = self.preview_face.copy()
+
+        all_w = np.array([all_w[0], all_w[0], all_w[0]])  # Przygotowujemy miejsca na twarze zmanipulowane
+
+        # Przesunięcie twarzy o wektor (już rozwinięty w 18)
+        all_w[0][0:8] = (all_w[0] - self.coefficient * self.direction)[0:8]
+        all_w[2][0:8] = (all_w[2] + self.coefficient * self.direction)[0:8]
+
+        all_images = self.Gs.components.synthesis.run(all_w, **self.synthesis_kwargs)
+
+        return np.hstack(all_images)
+
+    def __generate_preview_3faces(self):
+        """__generate_preview_face_manip tylko że używa zmiennej preview_3faces zamiast preview_face"""
+        super().__set_synthesis_kwargs(minibatch_size=3)
+        all_w = self.preview_3faces.copy()
+
+        all_images = self.Gs.components.synthesis.run(all_w, **self.synthesis_kwargs)
+
+        return np.hstack(all_images)
+
+    def __generate_preview_face_face_3(self):
+        """__generate_preview_face_manip tylko że używa zmiennej preview_3faces zamist preview_face"""
 
 class Generator3(Generator):
     """Dzaiła ze stylGANem3"""
