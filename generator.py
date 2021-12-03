@@ -15,23 +15,15 @@ import os
 
 
 class Generator():
-    def __init__(self, direction_name, coefficient, truncation, n_levels, result_dir, generator_number=1):
-        self.no_generator = generator_number
+    def __init__(self, coefficient, truncation, n_levels, result_dir):
         self.coefficient = coefficient  # Siła manipluacji / przemnożenie wektora
         self._truncation = truncation  # Parametr stylegan "jak różnorodne twarze"
         self.n_levels = n_levels  # liczba poziomów manipulacji 1-3
         self.synthesis_kwargs = {}  # Keyword arguments które przyjmuje stylegan
-        self.dir = {"results": Path(result_dir + str(self.no_generator)),
-                    "images": Path(result_dir + str(self.no_generator)) / 'images',
-                    "thumbnails": Path(result_dir + str(self.no_generator)) / 'thumbnails',
-                    "coordinates": Path(result_dir + str(self.no_generator)) / 'coordinates',
-                    "dominance": Path("stylegan2/stylegan2directions/dominance.npy"),
-                    "trustworthiness": Path("stylegan2/stylegan2directions/trustworthiness.npy")}
-        self.__direction_name = direction_name.lower()  # Wybrany wymiar
-        try:
-            self.direction = np.load(self.dir[self.__direction_name])  # Wgrany wektor cechy
-        except:
-            self.direction = np.load(direction_name)
+        self.dir = {"results": Path(result_dir),
+                    "images": Path(result_dir) / 'images',
+                    "thumbnails": Path(result_dir) / 'thumbnails',
+                    "coordinates": Path(result_dir) / 'coordinates'}
 
         for directory in self.dir.values():
             if directory.suffix == "": directory.mkdir(exist_ok=True, parents=True)
@@ -142,17 +134,31 @@ class Generator():
 
 class Generator2(Generator):
     """Generator który działa ze styleGANem2, ale bez części graficznych"""
-    def __init__(self, network_pkl):
-        super().__init__()
+    def __init__(self, network_pkl, direction_name, coefficient, truncation, n_levels, result_dir="results/"):
+        super().__init__(coefficient, truncation, n_levels, result_dir)
         if type(network_pkl) is str:
             self._G, self._D, self.Gs = load_networks(network_pkl)
         else:
             self.Gs = network_pkl
+        self.dir["dominance"] = "stylegan2/stylegan2directions/dominance.npy"
+        self.dir["trustworthiness"] = Path("stylegan2/stylegan2directions/trustworthiness.npy")
+        self.__direction_name = direction_name.lower()  # Wybrany wymiar
+        try:
+            self.direction = np.load(self.dir[self.__direction_name])  # Wgrany wektor cechy
+        except:
+            self.direction = np.load(direction_name)
 
 class GeneratorGraficzny(Generator):
     """Działa tak jak to wyżej, czyli nie usuwamy żadnego kodu tylko przeklejamy nieważne metody tutaj"""
-    def __init__(self, n_photos, type_of_preview):
-        super().__init__()
+    def __init__(self, direction_name,coefficient, truncation, n_levels, result_dir="results/"):
+        super().__init__(coefficient, truncation, n_levels, result_dir)
+        self.dir["dominance"] = "stylegan2/stylegan2directions/dominance.npy"
+        self.dir["trustworthiness"] = Path("stylegan2/stylegan2directions/trustworthiness.npy")
+        self.__direction_name = direction_name.lower()  # Wybrany wymiar
+        try:
+            self.direction = np.load(self.dir[self.__direction_name])  # Wgrany wektor cechy
+        except:
+            self.direction = np.load(direction_name)
         self.n_photos = n_photos  # Ile zdjęć wygenerować
         self.preview_face = super().__create_coordinates(1)  # Array z koordynatami twarzy na podglądzie 1
         self.preview_3faces = super().__create_coordinates(3)  # Array z koordynatami twarzy na podglądzie 3
