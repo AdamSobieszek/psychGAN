@@ -15,10 +15,11 @@ import os
 
 
 class Generator():
-    def __init__(self, coefficient, truncation, n_levels, result_dir):
+    def __init__(self, coefficient, truncation, n_photos, n_levels, result_dir):
         self.coefficient = coefficient  # Siła manipluacji / przemnożenie wektora
         self._truncation = truncation  # Parametr stylegan "jak różnorodne twarze"
         self.n_levels = n_levels  # liczba poziomów manipulacji 1-3
+        self.n_photos = n_photos  # Ile zdjęć wygenerować
         self.synthesis_kwargs = {}  # Keyword arguments które przyjmuje stylegan
         self.dir = {"results": Path(result_dir),
                     "images": Path(result_dir) / 'images',
@@ -150,8 +151,8 @@ class Generator2(Generator):
 
 class GeneratorGraficzny(Generator):
     """Działa tak jak to wyżej, czyli nie usuwamy żadnego kodu tylko przeklejamy nieważne metody tutaj"""
-    def __init__(self, direction_name,coefficient, truncation, n_levels, result_dir="results/"):
-        super().__init__(coefficient, truncation, n_levels, result_dir)
+    def __init__(self, direction_name,coefficient, truncation, n_photos, n_levels, result_dir="results/"):
+        super().__init__(coefficient, truncation, n_photos, n_levels, result_dir)
         self.dir["dominance"] = "stylegan2/stylegan2directions/dominance.npy"
         self.dir["trustworthiness"] = Path("stylegan2/stylegan2directions/trustworthiness.npy")
         self.__direction_name = direction_name.lower()  # Wybrany wymiar
@@ -159,7 +160,6 @@ class GeneratorGraficzny(Generator):
             self.direction = np.load(self.dir[self.__direction_name])  # Wgrany wektor cechy
         except:
             self.direction = np.load(direction_name)
-        self.n_photos = n_photos  # Ile zdjęć wygenerować
         self.preview_face = super().__create_coordinates(1)  # Array z koordynatami twarzy na podglądzie 1
         self.preview_3faces = super().__create_coordinates(3)  # Array z koordynatami twarzy na podglądzie 3
         self.type_of_preview = type_of_preview  # Typ podglądu, wartości: "3_faces", "manipulation" w zależności od tego które ustawienia są zmieniane
@@ -206,20 +206,34 @@ class GeneratorGraficzny(Generator):
 
 class Generator3(Generator):
 
-    def __init__(self, network_pkl, direction_name, coefficient, truncation, n_levels, n_photos, type_of_preview,
+    def __init__(self, network_pkl, direction_name, coefficient, truncation, n_photos, n_levels, type_of_preview,
                   result_dir, generator_number):
       self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-      Generator.__init__(self, direction_name, coefficient, truncation, n_levels, result_dir, generator_number)
+      Generator.__init__(self, coefficient, truncation, n_photos, n_levels, result_dir)
       with open(network_pkl, 'rb') as fp:
         self.G = pickle.load(fp)['G_ema'].to(self.device)
 
     def generate(self):
-      
-        zs = torch.randn([10000, self.G.mapping.z_dim], device=self.device)
-        w_stds = self.G.mapping(zs, None).std(0)
-        q = (self.G.mapping(torch.randn([10,self.G.mapping.z_dim], device=self.device), None, truncation_psi=0.7) - self.G.mapping.w_avg) / w_stds
 
-        images = self.G.synthesis(q * w_stds + self.G.mapping.w_avg)
+        w_stds = self.G.mapping(torch.randn([10000, self.G.mapping.z_dim], device=self.device), None).std(0) # To jest standard deviation cech, który jest używany potem przy skalowaniu cech w batchach
+        all_z =torch.randn([self.n_photos, self.G.mapping.z_dim], device=self.device)   # zamieniłem 10000 na self.n_photos, teraz to reprezentuje koordynaty twarzy które będziemy generować
+        #dodałem self.truncation
+        all_w = (self.G.mapping(all_z, None, truncation_psi=self.truncation)
+                 - self.G.mapping.w_avg) / all_w_stds
+        all_w = all_w * all_w_stds + self.G.mapping.w_avg # powyższe linijki warto by było zamknąć w reimplementacji metody __create_coordinates
 
-        return images
+
+        minibatch_size = 8 # zgaduję że tyle, zobaczymy ile się zmieści
+        for i in range(self.n_photos // minibatch_size + 1):
+            images = self.G.synthesis()# minibatch koordynatów z all_w)
+
+            # Tutaj te bebechy trzeba zaczerpnąć z metody generate w Generator
+
+            # To jest kod do zapisania obrazku, trzeba dodać poprawne nazwy i zapisywanie koordynatów które wygenerowały ten obrazek koniecznie z tą samą nazwą
+            for image in images:
+                img = (image.permute(0, 2, 3, 1) * 127.5 + 128).clamp(0, 255).to(torch.uint8)
+                PIL.Image.fromarray(img[0].cpu().numpy(), 'RGB').save(f'{outdir}/nr.png')
+
+        # Wynikiem tej metody jest zapisanie zdjęć a nie ich zwrócenie ale możemy rozważyć zwrócenie tutaj np wszystkich koordynatów
+        # return images
