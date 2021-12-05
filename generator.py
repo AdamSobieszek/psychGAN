@@ -205,6 +205,21 @@ class GeneratorGraficzny(Generator):
         """__generate_preview_face_manip tylko że używa zmiennej preview_3faces zamist preview_face"""
 
 class Generator3(Generator):
-    """Dzaiła ze stylGANem3"""
-    def __init__(self):
-        pass
+
+    def __init__(self, network_pkl, direction_name, coefficient, truncation, n_levels, n_photos, type_of_preview,
+                  result_dir, generator_number):
+      self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+      Generator.__init__(self, direction_name, coefficient, truncation, n_levels, result_dir, generator_number)
+      with open(network_pkl, 'rb') as fp:
+        self.G = pickle.load(fp)['G_ema'].to(self.device)
+
+    def generate(self):
+      
+        zs = torch.randn([10000, self.G.mapping.z_dim], device=self.device)
+        w_stds = self.G.mapping(zs, None).std(0)
+        q = (self.G.mapping(torch.randn([10,self.G.mapping.z_dim], device=self.device), None, truncation_psi=0.7) - self.G.mapping.w_avg) / w_stds
+
+        images = self.G.synthesis(q * w_stds + self.G.mapping.w_avg)
+
+        return images
