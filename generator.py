@@ -210,17 +210,18 @@ class Generator3(Generator):
 
     def __init__(self, network_pkl, direction_name, coefficient, truncation, n_photos, n_levels,
                   result_dir):
-      self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        import torch
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-      super().__init__(coefficient, truncation, n_photos, n_levels, result_dir)
-      with open(network_pkl, 'rb') as fp:
+        super().__init__(coefficient, truncation, n_photos, n_levels, result_dir)
+        with open(network_pkl, 'rb') as fp:
         self.G = pickle.load(fp)['G_ema'].to(self.device)
 
-      self.type_of_preview = type_of_preview
-      self.generator_number = generator_number
-      # setting direction name
-      self.direction_name = direction_name.lower()
-      self.super().direction_name(self.direction_name)
+        self.type_of_preview = type_of_preview
+        self.generator_number = generator_number
+        # setting direction name
+        self.direction_name = direction_name.lower()
+        self.super().direction_name(self.direction_name)
 
 
 
