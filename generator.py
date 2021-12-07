@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from zipfile import ZipFile
 import os
+import sys
 sys.path.insert(0, os.getcwd()+"/stylegan2")  #Pozwala importować rzeczy z folderu stylegan
 sys.path.insert(0, os.getcwd()+"/stylegan3")  #Pozwala importować rzeczy z folderu stylegan
 
