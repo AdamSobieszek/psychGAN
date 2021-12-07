@@ -209,7 +209,7 @@ class GeneratorGraficzny(Generator):
 class Generator3(Generator):
 
     def __init__(self, network_pkl, direction_name, coefficient, truncation, n_photos, n_levels,
-                  result_dir,):
+                  result_dir):
       self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
       super().__init__(coefficient, truncation, n_photos, n_levels, result_dir)
