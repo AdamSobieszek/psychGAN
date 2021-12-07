@@ -228,7 +228,7 @@ class Generator3(Generator):
     def __create_coordinates(self):
 
         all_z =torch.randn([self.n_photos, self.G.mapping.z_dim], device=self.device)   # zamieniłem 10000 na self.n_photos, teraz to reprezentuje koordynaty twarzy które będziemy generować
-        all_w = (self.G.mapping(all_z, None, truncation_psi=self.truncation) - self.G.mapping.w_avg) / all_w_stds
+        all_w = (self.G.mapping(all_z, None, truncation_psi=self.truncation) - self.G.mapping.w_avg) / self.all_w_stds
         return all_w
 
     def generate(self, spit = False):
@@ -239,8 +239,8 @@ class Generator3(Generator):
 
         minibatch_size = 8 # zgaduję że tyle, zobaczymy ile się zmieści
         for i in range(self.n_photos // minibatch_size + 1):
+            self.all_w_stds = self.G.mapping(torch.randn([10000, self.G.mapping.z_dim], device=self.device), None).std(0)  # To jest standard deviation cech, który jest używany potem przy skalowaniu cech w batchach
             all_w = self.__create_coordinates()
-            all_w_stds = self.G.mapping(torch.randn([10000, self.G.mapping.z_dim], device=self.device), None).std(0)  # To jest standard deviation cech, który jest używany potem przy skalowaniu cech w batchach
 
             all_w = all_w * all_w_stds + self.G.mapping.w_avg
 
