@@ -216,7 +216,6 @@ class Generator3(Generator):
       with open(network_pkl, 'rb') as fp:
         self.G = pickle.load(fp)['G_ema'].to(self.device)
 
-      self.type_of_preview = type_of_preview
       self.generator_number = generator_number
       # setting direction name
       self.direction_name = direction_name.lower()
