@@ -206,34 +206,67 @@ class GeneratorGraficzny(Generator):
 
 class Generator3(Generator):
 
-    def __init__(self, network_pkl, direction_name, coefficient, truncation, n_photos, n_levels, type_of_preview,
-                  result_dir, generator_number):
+    def __init__(self, network_pkl, direction_name, coefficient, truncation, n_photos, n_levels,
+                  result_dir, type_of_preview):
       self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-      Generator.__init__(self, coefficient, truncation, n_photos, n_levels, result_dir)
+      super().__init__(coefficient, truncation, n_photos, n_levels, result_dir)
       with open(network_pkl, 'rb') as fp:
         self.G = pickle.load(fp)['G_ema'].to(self.device)
 
-    def generate(self):
+      self.type_of_preview = type_of_preview
+      self.generator_number = generator_number
+      # setting direction name
+      self.direction_name = direction_name.lower()
+      self.super().direction_name(self.direction_name)
 
-        w_stds = self.G.mapping(torch.randn([10000, self.G.mapping.z_dim], device=self.device), None).std(0) # To jest standard deviation cech, który jest używany potem przy skalowaniu cech w batchach
+
+
+    def __create_coordinates(self):
+
         all_z =torch.randn([self.n_photos, self.G.mapping.z_dim], device=self.device)   # zamieniłem 10000 na self.n_photos, teraz to reprezentuje koordynaty twarzy które będziemy generować
-        #dodałem self.truncation
-        all_w = (self.G.mapping(all_z, None, truncation_psi=self.truncation)
-                 - self.G.mapping.w_avg) / all_w_stds
-        all_w = all_w * all_w_stds + self.G.mapping.w_avg # powyższe linijki warto by było zamknąć w reimplementacji metody __create_coordinates
+        all_w = (self.G.mapping(all_z, None, truncation_psi=self.truncation) - self.G.mapping.w_avg) / all_w_stds
+        return all_w
 
+    def generate(self, spit = False):
+
+        # powyższe linijki warto by było zamknąć w reimplementacji metody __create_coordinates
+        coeffs = [i / self.n_levels * self.coefficient if self.n_levels > 0 else i for i in
+                range(-self.n_levels, self.n_levels + 1)]
 
         minibatch_size = 8 # zgaduję że tyle, zobaczymy ile się zmieści
         for i in range(self.n_photos // minibatch_size + 1):
-            images = self.G.synthesis()# minibatch koordynatów z all_w)
+            all_w = super().__create_coordinates(minibatch_size)
+            all_w_stds = self.G.mapping(torch.randn([10000, self.G.mapping.z_dim], device=self.device), None).std(0)  # To jest standard deviation cech, który jest używany potem przy skalowaniu cech w batchach
+
+            all_w = all_w * all_w_stds + self.G.mapping.w_avg
+
+
+            for k, coeff in enumerate(coeffs):
+                manip_w = all_w.copy()
+
+                for j in range(len(all_w)):
+                    manip_w[j][0:8] = (manip_w[j] + coeff * self.direction)[0:8]
+
+                manip_images = self.G.synthesis.input(manip_w, **self.synthesis_kwargs)
+
+
+            # images = self.G.synthesis()# minibatch koordynatów z all_w)
 
             # Tutaj te bebechy trzeba zaczerpnąć z metody generate w Generator
 
             # To jest kod do zapisania obrazku, trzeba dodać poprawne nazwy i zapisywanie koordynatów które wygenerowały ten obrazek koniecznie z tą samą nazwą
-            for image in images:
-                img = (image.permute(0, 2, 3, 1) * 127.5 + 128).clamp(0, 255).to(torch.uint8)
-                PIL.Image.fromarray(img[0].cpu().numpy(), 'RGB').save(f'{outdir}/nr.png')
+                for idx in range(len(images)):
+                    img = (image[idx].permute(0, 2, 3, 1) * 127.5 + 128).clamp(0, 255).to(torch.uint8)
+                    PIL.Image.fromarray(img[0].cpu().numpy(), 'RGB').save(f'{outdir}/{idx}.png')
+                    nr += 1
+                    # save coordinates
+                for j, (dlatent) in enumerate(all_w):
+                    np.save(self.dir["coordinates"] / (str(i * minibatch_size + j) + '.npy'), dlatent[0])
+
+        if spit == True:
+
+            return images
 
         # Wynikiem tej metody jest zapisanie zdjęć a nie ich zwrócenie ale możemy rozważyć zwrócenie tutaj np wszystkich koordynatów
         # return images
