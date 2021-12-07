@@ -248,8 +248,8 @@ class Generator3(Generator):
             for k, coeff in enumerate(coeffs):
                 manip_w = all_w.clone()
 
-                for j in range(len(all_w)):
-                    manip_w[j][0:8] = (manip_w[j] + coeff * self.direction)[0:8]
+#                 for j in range(len(all_w)):
+#                     manip_w[j][0:8] = (manip_w[j] + coeff * self.direction)[0:8]
 
                 manip_images = self.G.synthesis.input(manip_w, **self.synthesis_kwargs)
 
