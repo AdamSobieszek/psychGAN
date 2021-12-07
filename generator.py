@@ -217,8 +217,8 @@ class Generator3(Generator):
             self.G = pickle.load(fp)['G_ema'].to(self.device)
 
         # setting direction name
-        self.direction_name = direction_name.lower()
-        self.super().direction_name(self.direction_name)
+#         self.direction_name = direction_name.lower()
+#         self.super().direction_name(self.direction_name)
 
 
 
@@ -236,7 +236,7 @@ class Generator3(Generator):
 
         minibatch_size = 8 # zgaduję że tyle, zobaczymy ile się zmieści
         for i in range(self.n_photos // minibatch_size + 1):
-            all_w = super().__create_coordinates(minibatch_size)
+            all_w = self.__create_coordinates()
             all_w_stds = self.G.mapping(torch.randn([10000, self.G.mapping.z_dim], device=self.device), None).std(0)  # To jest standard deviation cech, który jest używany potem przy skalowaniu cech w batchach
 
             all_w = all_w * all_w_stds + self.G.mapping.w_avg
