@@ -4,15 +4,13 @@ import pandas as pd
 import PIL.Image
 from PIL import Image, ImageDraw
 import cv2
-import dnnlib
-import dnnlib.tflib as tflib
 import imageio
 import matplotlib.pyplot as plt
 from pathlib import Path
-from pretrained_networks import load_networks
 from zipfile import ZipFile
 import os
-
+sys.path.insert(0, os.getcwd()+"/stylegan2")  #Pozwala importować rzeczy z folderu stylegan
+sys.path.insert(0, os.getcwd()+"/stylegan3")  #Pozwala importować rzeczy z folderu stylegan
 
 class Generator():
     def __init__(self, coefficient, truncation, n_photos, n_levels, result_dir):
@@ -136,6 +134,9 @@ class Generator():
 class Generator2(Generator):
     """Generator który działa ze styleGANem2, ale bez części graficznych"""
     def __init__(self, network_pkl, direction_name, coefficient, truncation, n_levels, result_dir="results/"):
+        import dnnlib
+        import dnnlib.tflib as tflib
+        from pretrained_networks import load_networks
         super().__init__(coefficient, truncation, n_levels, result_dir)
         if type(network_pkl) is str:
             self._G, self._D, self.Gs = load_networks(network_pkl)
