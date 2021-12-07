@@ -215,7 +215,7 @@ class Generator3(Generator):
 
         super().__init__(coefficient, truncation, n_photos, n_levels, result_dir)
         with open(network_pkl, 'rb') as fp:
-        self.G = pickle.load(fp)['G_ema'].to(self.device)
+            self.G = pickle.load(fp)['G_ema'].to(self.device)
 
         # setting direction name
         self.direction_name = direction_name.lower()
