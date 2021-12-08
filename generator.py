@@ -225,7 +225,6 @@ class Generator3(Generator):
         except:
           pass
 
-
     def __create_coordinates(self):
 
         all_z =torch.randn([self.n_photos, self.G.mapping.z_dim], device=self.device)
@@ -279,8 +278,6 @@ class Generator3(Generator):
                       coefficients.append(coeff)
                       if save == True:
                         np.save(str(self.dir["coordinates"]) + f'/coeff_{coeff}__number_{i * minibatch_size + j}' + '.npy', dlatent[0])
-
-
 
         if spit == True:
           all_dict = {"nr" : numbers, 'coefficients' : coefficients, 'photos' : photos}
