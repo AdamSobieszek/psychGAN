@@ -236,6 +236,11 @@ class Generator3(Generator):
         return all_w
 
     def generate(self, spit = False, save = True):
+        
+        """
+        spit -> whether to return a dataframe with images, their numbers and coefficients
+        save -> whether to save
+        """
 
         coeffs = [i / self.n_levels * self.coefficient if self.n_levels > 0 else i for i in
                 range(-self.n_levels, self.n_levels + 1)]
