@@ -253,7 +253,6 @@ class Generator3(Generator):
             all_w = self.__create_coordinates()
             all_w = all_w * self.all_w_stds + self.G.mapping.w_avg
 
-
             for k, coeff in enumerate(coeffs):
                 manip_w = all_w.clone()
                 try:
