@@ -187,7 +187,6 @@ class GeneratorGraficzny(Generator):
         """Zwraca array ze zdjeciem, sklejonymi 3 twarzami: w środku neutralna, po bokach zmanipulowana"""
         super().__set_synthesis_kwargs(minibatch_size=3)
         all_w = self.preview_face.copy()
-
         all_w = np.array([all_w[0], all_w[0], all_w[0]])  # Przygotowujemy miejsca na twarze zmanipulowane
 
         # Przesunięcie twarzy o wektor (już rozwinięty w 18)
