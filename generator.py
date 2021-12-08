@@ -251,21 +251,17 @@ class Generator3(Generator):
 
         for i in range(self.n_photos // minibatch_size + 1):
             all_w = self.__create_coordinates()
-
             all_w = all_w * self.all_w_stds + self.G.mapping.w_avg
 
 
             for k, coeff in enumerate(coeffs):
                 manip_w = all_w.clone()
-
                 try:
                   for j in range(len(all_w)):
                     manip_w[j][0:8] = (manip_w[j] + coeff * self.direction)[0:8]
                 except:
                   manip_w = all_w.clone()[0:8]
-
                 images = self.G.synthesis(manip_w, **self.synthesis_kwargs)
-
                 # some text transformations to get rid of the problematic characters
                 coeff = str(coeff).replace('-','minus_')
                 coeff = coeff.replace('.','_')
@@ -276,16 +272,12 @@ class Generator3(Generator):
                         img = images[j]
                         numbers.append(i * minibatch_size + j)
                         photos.append(img.cpu())
-
                         if save == True:
                           PIL.Image.fromarray(img[0].cpu().numpy(), 'RGB').save(str(self.dir['images']) + f'/coeff_{coeff}__number_{i * minibatch_size + j}.png')
 
-
                 for j, (dlatent) in enumerate(images):
-
                     if i * minibatch_size + j < self.n_photos:
                       coefficients.append(coeff)
-
                       if save == True:
                         np.save(str(self.dir["coordinates"]) + f'/coeff_{coeff}__number_{i * minibatch_size + j}' + '.npy', dlatent[0])
 
