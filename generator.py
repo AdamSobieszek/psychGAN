@@ -212,20 +212,16 @@ class GeneratorGraficzny(Generator):
 class Generator3(Generator):
 
     def __init__(self, network_pkl, direction_name, coefficient, truncation, n_photos, n_levels,
-                  result_dir, generator_number = 1):
-      
+                  result_dir, generator_number = 1):     
+        
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
         super().__init__(coefficient, truncation, n_photos, n_levels, result_dir)
-
         with open(network_pkl, 'rb') as fp:
             self.G = pickle.load(fp)['G_ema'].to(self.device)
-
         # setting direction name
         try:
           self.direction_name = direction_name.lower()
           self.super().direction_name(self.direction_name)
-
         except:
           pass
 
@@ -242,9 +238,7 @@ class Generator3(Generator):
 
         coeffs = [i / self.n_levels * self.coefficient if self.n_levels > 0 else i for i in
                 range(-self.n_levels, self.n_levels + 1)]
-
         minibatch_size = 8
-
         # lists to store data for the images dataframe
         numbers = []
         coefficients = []
