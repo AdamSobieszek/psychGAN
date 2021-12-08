@@ -12,6 +12,7 @@ import os
 import sys
 import torch
 import pickle
+import re
 
 sys.path.insert(0, os.getcwd()+"/stylegan2")  #Pozwala importować rzeczy z folderu stylegan
 sys.path.insert(0, os.getcwd()+"/stylegan3")  #Pozwala importować rzeczy z folderu stylegan
