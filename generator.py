@@ -219,7 +219,7 @@ class Generator3(Generator):
     def __init__(self, network_pkl, direction_name, coefficient, truncation, n_photos, n_levels,
 
                   result_dir, minibatch_size = 8 ):
-                      
+
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         super().__init__(coefficient, truncation, n_photos, n_levels, result_dir)
         with open(network_pkl, 'rb') as fp:
@@ -241,10 +241,10 @@ class Generator3(Generator):
 
 
     def load_coord(self,path):
-        return torch.tensor(np.tile(np.load(path),(18,1))).to(self.device)
+        return torch.tensor(np.tile(np.load(path),(16,1))).to(self.device)
 
 
-    def g(self,coords):
+    def g(self,coords, spit = False, save = True):
         n = len(coords)
         coeffs = [i / self.n_levels * self.coefficient if self.n_levels > 0 else i for i in
                 range(-self.n_levels, self.n_levels + 1)]
@@ -265,18 +265,18 @@ class Generator3(Generator):
 
                 for j, image in enumerate(images):
                     if i * self.minibatch_size + j < self.n_photos:
-                        numbers.append(i * self.minibatch_size + j)
-                        # photos.append(image.cpu())
-                        coefficients.append(coeff)
-                        if save == True:
+                        if save:
                             name = f'/g_coeff_{coeff}__number_{i * self.minibatch_size + j}.png' if self.n_levels>0 else f'/g_{i * self.minibatch_size + j}.png'
                             tf = Compose([
                                 lambda x: torch.clamp((x + 1) / 2, min=0, max=1)
                             ])
                             TF.to_pil_image(tf(image)).save(str(self.dir['images']) + name)
+        if spit:
+          return images
 
-    def generate(self, spit = False, save = True):
         
+    def generate(self, spit = False, save = True):
+
         """
         spit -> whether to return a dataframe with images, their numbers and coefficients
         save -> whether to save
