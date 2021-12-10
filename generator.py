@@ -240,6 +240,46 @@ class Generator3(Generator):
         return all_w * self.all_w_stds + self.G.mapping.w_avg
 
 
+    def load_coord(self,path):
+        return torch.tensor(np.tile(np.load(path),(18,1))).to(self.device)
+
+
+    def g(self,coords):
+        n = len(coords)
+        for i in range(n // minibatch_size + 1):
+            batch_w  = torch.tensor(coords)
+
+            for k, coeff in enumerate(coeffs):
+                manip_w = batch_w.clone()
+                try:
+                  for j in range(len(manip_w)):
+                    manip_w[j][0:8] = (manip_w[j] + coeff * self.direction)[0:8]
+                except:
+                  manip_w = batch_w.clone()
+                images = self.G.synthesis(manip_w, **self.synthesis_kwargs)
+                # some text transformations to get rid of the problematic characters
+                coeff = str(coeff).replace('-','minus_')
+                coeff = coeff.replace('.','_')
+                coeff = re.sub(r'(.)\1+', r'\1', coeff)
+
+                for j, image in enumerate(images):
+                    if i * minibatch_size + j < self.n_photos:
+                        numbers.append(i * minibatch_size + j)
+                        # photos.append(image.cpu())
+                        coefficients.append(coeff)
+                        if save == True:
+                            name = f'/coeff_{coeff}__number_{i * minibatch_size + j}.png' if self.n_levels>0 else f'/{i * minibatch_size + j}.png'
+                            tf = Compose([
+                                lambda x: torch.clamp((x + 1) / 2, min=0, max=1)
+                            ])
+                            TF.to_pil_image(tf(image)).save(str(self.dir['images']) + name)
+
+            for j, (dlatent) in enumerate(batch_w):
+                if i * minibatch_size + j < self.n_photos:
+                  if save == True:
+                    np.save(str(self.dir["coordinates"]) + f'/{i * minibatch_size + j}' + '.npy', dlatent[0].cpu())
+
+
     def generate(self, spit = False, save = True):
         
         """
