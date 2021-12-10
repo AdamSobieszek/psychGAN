@@ -246,9 +246,10 @@ class Generator3(Generator):
 
     def g(self,coords):
         n = len(coords)
+        coeffs = [i / self.n_levels * self.coefficient if self.n_levels > 0 else i for i in
+                range(-self.n_levels, self.n_levels + 1)]
         for i in range(n // minibatch_size + 1):
-            batch_w  = torch.tensor(coords)
-
+            batch_w  = torch.tensor(coords[i:(i+1)*batch_size]).to(self.device)
             for k, coeff in enumerate(coeffs):
                 manip_w = batch_w.clone()
                 try:
@@ -268,17 +269,11 @@ class Generator3(Generator):
                         # photos.append(image.cpu())
                         coefficients.append(coeff)
                         if save == True:
-                            name = f'/coeff_{coeff}__number_{i * minibatch_size + j}.png' if self.n_levels>0 else f'/{i * minibatch_size + j}.png'
+                            name = f'/g_coeff_{coeff}__number_{i * minibatch_size + j}.png' if self.n_levels>0 else f'/g_{i * minibatch_size + j}.png'
                             tf = Compose([
                                 lambda x: torch.clamp((x + 1) / 2, min=0, max=1)
                             ])
                             TF.to_pil_image(tf(image)).save(str(self.dir['images']) + name)
-
-            for j, (dlatent) in enumerate(batch_w):
-                if i * minibatch_size + j < self.n_photos:
-                  if save == True:
-                    np.save(str(self.dir["coordinates"]) + f'/{i * minibatch_size + j}' + '.npy', dlatent[0].cpu())
-
 
     def generate(self, spit = False, save = True):
         
