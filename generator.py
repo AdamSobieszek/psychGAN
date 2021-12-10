@@ -11,6 +11,7 @@ from zipfile import ZipFile
 import os
 import sys
 import torch
+import torchvision.transforms.functional as TF
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
 import pickle
 import re
@@ -276,10 +277,11 @@ class Generator3(Generator):
                         # photos.append(image.cpu())
                         coefficients.append(coeff)
                         if save == True:
+                            name = f'/coeff_{coeff}__number_{i * minibatch_size + j}.png' if n_levels>0 else f'{i * minibatch_size + j}.png''
                             tf = Compose([
                                 lambda x: torch.clamp((x + 1) / 2, min=0, max=1)
                             ])
-                            TF.to_pil_image(tf(image)).save(str(self.dir['images']) + f'/coeff_{coeff}__number_{i * minibatch_size + j}.png')
+                            TF.to_pil_image(tf(image)).save(str(self.dir['images']) + name)
 
             for j, (dlatent) in enumerate(batch_w):
                 if i * minibatch_size + j < self.n_photos:
