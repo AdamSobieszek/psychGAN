@@ -218,14 +218,14 @@ class Generator3(Generator):
 
     def __init__(self, network_pkl, direction_name, coefficient, truncation, n_photos, n_levels,
 
-                  result_dir, generator_number = 1):     
+                  result_dir, minibatch_size = 8 ):
                       
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         super().__init__(coefficient, truncation, n_photos, n_levels, result_dir)
         with open(network_pkl, 'rb') as fp:
             self.G = pickle.load(fp)['G_ema'].to(self.device)
         # setting direction name
-
+        self.minibatch_size = minibatch_size
         try:
           self.direction_name = direction_name.lower()
           self.super().direction_name(self.direction_name)
@@ -248,8 +248,8 @@ class Generator3(Generator):
         n = len(coords)
         coeffs = [i / self.n_levels * self.coefficient if self.n_levels > 0 else i for i in
                 range(-self.n_levels, self.n_levels + 1)]
-        for i in range(n // minibatch_size + 1):
-            batch_w  = torch.tensor(coords[i:(i+1)*batch_size]).to(self.device)
+        for i in range(n // self.minibatch_size + 1):
+            batch_w  = torch.stack(coords[i:(i+1)*self.minibatch_size]).to(self.device)
             for k, coeff in enumerate(coeffs):
                 manip_w = batch_w.clone()
                 try:
@@ -264,12 +264,12 @@ class Generator3(Generator):
                 coeff = re.sub(r'(.)\1+', r'\1', coeff)
 
                 for j, image in enumerate(images):
-                    if i * minibatch_size + j < self.n_photos:
-                        numbers.append(i * minibatch_size + j)
+                    if i * self.minibatch_size + j < self.n_photos:
+                        numbers.append(i * self.minibatch_size + j)
                         # photos.append(image.cpu())
                         coefficients.append(coeff)
                         if save == True:
-                            name = f'/g_coeff_{coeff}__number_{i * minibatch_size + j}.png' if self.n_levels>0 else f'/g_{i * minibatch_size + j}.png'
+                            name = f'/g_coeff_{coeff}__number_{i * self.minibatch_size + j}.png' if self.n_levels>0 else f'/g_{i * self.minibatch_size + j}.png'
                             tf = Compose([
                                 lambda x: torch.clamp((x + 1) / 2, min=0, max=1)
                             ])
@@ -284,14 +284,13 @@ class Generator3(Generator):
 
         coeffs = [i / self.n_levels * self.coefficient if self.n_levels > 0 else i for i in
                 range(-self.n_levels, self.n_levels + 1)]
-        minibatch_size = 8
         # lists to store data for the images dataframe
         numbers = []
         coefficients = []
         photos = []
         all_w = self.__create_coordinates()
-        for i in range(self.n_photos // minibatch_size + 1):
-            batch_w  = all_w[i:(i+1) * minibatch_size]
+        for i in range(self.n_photos // self.minibatch_size + 1):
+            batch_w  = all_w[i:(i+1) * self.minibatch_size]
 
             for k, coeff in enumerate(coeffs):
                 manip_w = batch_w.clone()
@@ -307,21 +306,21 @@ class Generator3(Generator):
                 coeff = re.sub(r'(.)\1+', r'\1', coeff)
 
                 for j, image in enumerate(images):
-                    if i * minibatch_size + j < self.n_photos:
-                        numbers.append(i * minibatch_size + j)
+                    if i * self.minibatch_size + j < self.n_photos:
+                        numbers.append(i * self.minibatch_size + j)
                         # photos.append(image.cpu())
                         coefficients.append(coeff)
                         if save == True:
-                            name = f'/coeff_{coeff}__number_{i * minibatch_size + j}.png' if self.n_levels>0 else f'/{i * minibatch_size + j}.png'
+                            name = f'/coeff_{coeff}__number_{i * self.minibatch_size + j}.png' if self.n_levels>0 else f'/{i * self.minibatch_size + j}.png'
                             tf = Compose([
                                 lambda x: torch.clamp((x + 1) / 2, min=0, max=1)
                             ])
                             TF.to_pil_image(tf(image)).save(str(self.dir['images']) + name)
 
             for j, (dlatent) in enumerate(batch_w):
-                if i * minibatch_size + j < self.n_photos:
+                if i * self.minibatch_size + j < self.n_photos:
                   if save == True:
-                    np.save(str(self.dir["coordinates"]) + f'/{i * minibatch_size + j}' + '.npy', dlatent[0].cpu())
+                    np.save(str(self.dir["coordinates"]) + f'/{i * self.minibatch_size + j}' + '.npy', dlatent[0].cpu())
 
         if spit == True:
           all_dict = {"nr" : numbers, 'coefficients' : coefficients, 'photos' : photos}
