@@ -218,7 +218,7 @@ class Generator3(Generator):
 
     def __init__(self, network_pkl, direction_name, coefficient, truncation, n_photos, n_levels,
 
-                  result_dir, minibatch_size = 8 ):
+                 result_dir, minibatch_size=8):
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         super().__init__(coefficient, truncation, n_photos, n_levels, result_dir)
@@ -227,55 +227,52 @@ class Generator3(Generator):
         # setting direction name
         self.minibatch_size = minibatch_size
         try:
-          self.direction_name = direction_name.lower()
-          self.super().direction_name(self.direction_name)
+            self.direction_name = direction_name.lower()
+            self.super().direction_name(self.direction_name)
         except:
-          pass
+            pass
 
     def __create_coordinates(self):
 
-        all_z =torch.randn([self.n_photos, self.G.mapping.z_dim], device=self.device)
+        all_z = torch.randn([self.n_photos, self.G.mapping.z_dim], device=self.device)
         self.all_w_stds = self.G.mapping(torch.randn([10000, self.G.mapping.z_dim], device=self.device), None).std(0)
         all_w = (self.G.mapping(all_z, None, truncation_psi=self.truncation) - self.G.mapping.w_avg) / self.all_w_stds
         return all_w * self.all_w_stds + self.G.mapping.w_avg
 
+    def load_coord(self, path):
+        return torch.tensor(np.tile(np.load(path), (16, 1))).to(self.device)
 
-    def load_coord(self,path):
-        return torch.tensor(np.tile(np.load(path),(16,1))).to(self.device)
-
-
-    def g(self,coords, spit = False, save = True):
+    def g(self, coords, spit=False, save=True):
         n = len(coords)
         coeffs = [i / self.n_levels * self.coefficient if self.n_levels > 0 else i for i in
-                range(-self.n_levels, self.n_levels + 1)]
+                  range(-self.n_levels, self.n_levels + 1)]
         for i in range(n // self.minibatch_size + 1):
-            batch_w  = torch.stack(coords[i:(i+1)*self.minibatch_size]).to(self.device)
+            batch_w = torch.stack(coords[i:(i + 1) * self.minibatch_size]).to(self.device)
             for k, coeff in enumerate(coeffs):
                 manip_w = batch_w.clone()
                 try:
-                  for j in range(len(manip_w)):
-                    manip_w[j][0:8] = (manip_w[j] + coeff * self.direction)[0:8]
+                    for j in range(len(manip_w)):
+                        manip_w[j][0:8] = (manip_w[j] + coeff * self.direction)[0:8]
                 except:
-                  manip_w = batch_w.clone()
+                    manip_w = batch_w.clone()
                 images = self.G.synthesis(manip_w, **self.synthesis_kwargs)
                 # some text transformations to get rid of the problematic characters
-                coeff = str(coeff).replace('-','minus_')
-                coeff = coeff.replace('.','_')
+                coeff = str(coeff).replace('-', 'minus_')
+                coeff = coeff.replace('.', '_')
                 coeff = re.sub(r'(.)\1+', r'\1', coeff)
 
                 for j, image in enumerate(images):
                     if i * self.minibatch_size + j < self.n_photos:
                         if save:
-                            name = f'/g_coeff_{coeff}__number_{i * self.minibatch_size + j}.png' if self.n_levels>0 else f'/g_{i * self.minibatch_size + j}.png'
+                            name = f'/g_coeff_{coeff}__number_{i * self.minibatch_size + j}.png' if self.n_levels > 0 else f'/g_{i * self.minibatch_size + j}.png'
                             tf = Compose([
                                 lambda x: torch.clamp((x + 1) / 2, min=0, max=1)
                             ])
                             TF.to_pil_image(tf(image)).save(str(self.dir['images']) + name)
         if spit:
-          return images
+            return images
 
-        
-    def generate(self, spit = False, save = True):
+    def generate(self, spit=False, save=True):
 
         """
         spit -> whether to return a dataframe with images, their numbers and coefficients
@@ -283,26 +280,26 @@ class Generator3(Generator):
         """
 
         coeffs = [i / self.n_levels * self.coefficient if self.n_levels > 0 else i for i in
-                range(-self.n_levels, self.n_levels + 1)]
+                  range(-self.n_levels, self.n_levels + 1)]
         # lists to store data for the images dataframe
         numbers = []
         coefficients = []
-        photos = []
+        # musiałem usunąć zapisywanie zdjęć do df bo łamie to szybko limity pamięci
         all_w = self.__create_coordinates()
         for i in range(self.n_photos // self.minibatch_size + 1):
-            batch_w  = all_w[i:(i+1) * self.minibatch_size]
+            batch_w = all_w[i:(i + 1) * self.minibatch_size]
 
             for k, coeff in enumerate(coeffs):
-                manip_w = batch_w.clone()
                 try:
-                  for j in range(len(manip_w)):
-                    manip_w[j][0:8] = (manip_w[j] + coeff * self.direction)[0:8]
+                    manip_w = batch_w.clone()
+                    for j in range(len(manip_w)):
+                        manip_w[j][0:8] = (manip_w[j] + coeff * self.direction)[0:8]
                 except:
-                  manip_w = batch_w.clone()
+                    manip_w = batch_w.clone()
                 images = self.G.synthesis(manip_w, **self.synthesis_kwargs)
                 # some text transformations to get rid of the problematic characters
-                coeff = str(coeff).replace('-','minus_')
-                coeff = coeff.replace('.','_')
+                coeff = str(coeff).replace('-', 'minus_')
+                coeff = coeff.replace('.', '_')
                 coeff = re.sub(r'(.)\1+', r'\1', coeff)
 
                 for j, image in enumerate(images):
@@ -311,19 +308,26 @@ class Generator3(Generator):
                         # photos.append(image.cpu())
                         coefficients.append(coeff)
                         if save == True:
-                            name = f'/coeff_{coeff}__number_{i * self.minibatch_size + j}.png' if self.n_levels>0 else f'/{i * self.minibatch_size + j}.png'
+                            name = f'/coeff_{coeff}__number_{i * self.minibatch_size + j}.png' if self.n_levels > 0 else f'/{i * self.minibatch_size + j}.png'
                             tf = Compose([
                                 lambda x: torch.clamp((x + 1) / 2, min=0, max=1)
                             ])
                             TF.to_pil_image(tf(image)).save(str(self.dir['images']) + name)
 
+                del images, manip_w
+
             for j, (dlatent) in enumerate(batch_w):
                 if i * self.minibatch_size + j < self.n_photos:
-                  if save == True:
-                    np.save(str(self.dir["coordinates"]) + f'/{i * self.minibatch_size + j}' + '.npy', dlatent[0].cpu())
+                    if save == True:
+                        np.save(str(self.dir["coordinates"]) + f'/{i * self.minibatch_size + j}' + '.npy',
+                                dlatent[0].cpu())
+
+            del batch_w
+        del all_w
+        torch.cuda.empy_cache()
 
         if spit == True:
-          all_dict = {"nr" : numbers, 'coefficients' : coefficients, 'photos' : photos}
-          df = pd.DataFrame.from_dict(all_dict)
+            all_dict = {"nr": numbers, 'coefficients': coefficients, 'photos': photos}
+            df = pd.DataFrame.from_dict(all_dict)
 
-          return df
+            return df
