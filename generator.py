@@ -12,6 +12,7 @@ import os
 import sys
 import torch
 import pickle
+import re
 
 sys.path.insert(0, os.getcwd() + "/stylegan2")  # Pozwala importować rzeczy z folderu stylegan
 sys.path.insert(0, os.getcwd() + "/stylegan3")  # Pozwala importować rzeczy z folderu stylegan
@@ -188,7 +189,6 @@ class GeneratorGraficzny(Generator):
         """Zwraca array ze zdjeciem, sklejonymi 3 twarzami: w środku neutralna, po bokach zmanipulowana"""
         super().__set_synthesis_kwargs(minibatch_size=3)
         all_w = self.preview_face.copy()
-
         all_w = np.array([all_w[0], all_w[0], all_w[0]])  # Przygotowujemy miejsca na twarze zmanipulowane
 
         # Przesunięcie twarzy o wektor (już rozwinięty w 18)
@@ -215,59 +215,79 @@ class GeneratorGraficzny(Generator):
 class Generator3(Generator):
 
     def __init__(self, network_pkl, direction_name, coefficient, truncation, n_photos, n_levels,
-                 result_dir, generator_number=1):
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+                  result_dir, generator_number = 1):     
+                      
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         super().__init__(coefficient, truncation, n_photos, n_levels, result_dir)
         with open(network_pkl, 'rb') as fp:
             self.G = pickle.load(fp)['G_ema'].to(self.device)
-
         # setting direction name
 
-    #         self.direction_name = direction_name.lower()
-    #         self.super().direction_name(self.direction_name)
+        try:
+          self.direction_name = direction_name.lower()
+          self.super().direction_name(self.direction_name)
+        except:
+          pass
 
     def __create_coordinates(self):
 
-        all_z = torch.randn([self.n_photos, self.G.mapping.z_dim],
-                            device=self.device)  # zamieniłem 10000 na self.n_photos, teraz to reprezentuje koordynaty twarzy które będziemy generować
+        all_z =torch.randn([self.n_photos, self.G.mapping.z_dim], device=self.device)
+        self.all_w_stds = self.G.mapping(torch.randn([self.n_photos, self.G.mapping.z_dim], device=self.device), None).std(0) 
         all_w = (self.G.mapping(all_z, None, truncation_psi=self.truncation) - self.G.mapping.w_avg) / self.all_w_stds
+
         return all_w
 
-    def generate(self, spit=False):
 
-        # powyższe linijki warto by było zamknąć w reimplementacji metody __create_coordinates
+    def generate(self, spit = False, save = True):
+        
+        """
+        spit -> whether to return a dataframe with images, their numbers and coefficients
+        save -> whether to save
+        """
+
         coeffs = [i / self.n_levels * self.coefficient if self.n_levels > 0 else i for i in
-                  range(-self.n_levels, self.n_levels + 1)]
-        self.all_w_stds = self.G.mapping(torch.randn([10000, self.G.mapping.z_dim], device=self.device), None).std(
-            0)  # To jest standard deviation cech, który jest używany potem przy skalowaniu cech w batchach
-        all_w = self.__create_coordinates()
-        all_w = all_w * all_w_stds + self.G.mapping.w_avg
 
-        minibatch_size = 8  # zgaduję że tyle, zobaczymy ile się zmieści
+                range(-self.n_levels, self.n_levels + 1)]
+        minibatch_size = 8
+        # lists to store data for the images dataframe
+        numbers = []
+        coefficients = []
+        photos = []
+
         for i in range(self.n_photos // minibatch_size + 1):
+            all_w = self.__create_coordinates()
+            all_w = all_w * self.all_w_stds + self.G.mapping.w_avg
+
             for k, coeff in enumerate(coeffs):
-                manip_w = all_w[i:i*minibatch_size].clone()
+                manip_w = all_w.clone()
+                try:
+                  for j in range(len(all_w)):
+                    manip_w[j][0:8] = (manip_w[j] + coeff * self.direction)[0:8]
+                except:
+                  manip_w = all_w.clone()[0:8]
+                images = self.G.synthesis(manip_w, **self.synthesis_kwargs)
+                # some text transformations to get rid of the problematic characters
+                coeff = str(coeff).replace('-','minus_')
+                coeff = coeff.replace('.','_')
+                coeff = re.sub(r'(.)\1+', r'\1', coeff)
 
-                # for j in range(len(all_w)):
-                #     manip_w[j][0:8] = (manip_w[j] + coeff * self.direction)[0:8]
-
-                manip_images = self.G.synthesis(manip_w)
-
-                # To jest kod do zapisania obrazku, trzeba dodać poprawne nazwy i zapisywanie koordynatów które wygenerowały ten obrazek koniecznie z tą samą nazwą
-                for j, image in enumerate(manip_images):
-                    img = (image.permute(0, 2, 3, 1) * 127.5 + 128).clamp(0, 255).to(torch.uint8)
-                    PIL.Image.fromarray(img[0].cpu().numpy(), 'RGB').save(self.dir["results"] / (str(i * minibatch_size + j)) + '.png')
-
-                for j in range(len(all_w)):
+                for j in range(len(images)):
                     if i * minibatch_size + j < self.n_photos:
-                        self.save_image(manip_images[j], i * minibatch_size + j, k)
-                    # save coordinates
-                for j, (dlatent) in enumerate(all_w):
-                    np.save(self.dir["coordinates"] / (str(i * minibatch_size + j) + '.npy'), dlatent[0].cpu())
+                        img = images[j]
+                        numbers.append(i * minibatch_size + j)
+                        photos.append(img.cpu())
+                        if save == True:
+                          PIL.Image.fromarray(img[0].cpu().numpy(), 'RGB').save(str(self.dir['images']) + f'/coeff_{coeff}__number_{i * minibatch_size + j}.png')
+
+                for j, (dlatent) in enumerate(images):
+                    if i * minibatch_size + j < self.n_photos:
+                      coefficients.append(coeff)
+                      if save == True:
+                        np.save(str(self.dir["coordinates"]) + f'/coeff_{coeff}__number_{i * minibatch_size + j}' + '.npy', dlatent[0])
 
         if spit == True:
-            return images
+          all_dict = {"nr" : numbers, 'coefficients' : coefficients, 'photos' : photos}
+          df = pd.DataFrame.from_dict(all_dict)
 
-        # Wynikiem tej metody jest zapisanie zdjęć a nie ich zwrócenie ale możemy rozważyć zwrócenie tutaj np wszystkich koordynatów
-        # return images
+          return df
