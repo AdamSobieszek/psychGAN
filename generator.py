@@ -272,11 +272,14 @@ class Generator3(Generator):
                 for j, image in enumerate(images):
                     if i * minibatch_size + j < self.n_photos:
                         numbers.append(i * minibatch_size + j)
-                        photos.append(image.cpu())
+                        # photos.append(image.cpu())
                         coefficients.append(coeff)
                         if save == True:
-                            image = (image.permute(0, 2, 3, 1) * 127.5 + 128).clamp(0, 255).to(torch.uint8)
-                            PIL.Image.fromarray(image[0].cpu().numpy(), 'RGB').save(str(self.dir['images']) + f'/coeff_{coeff}__number_{i * minibatch_size + j}.png')
+                            tf = Compose([
+                                lambda x: torch.clamp((x + 1) / 2, min=0, max=1)
+                            ])
+                            
+                            TF.to_pil_image(tf(image)).save(str(self.dir['images']) + f'/coeff_{coeff}__number_{i * minibatch_size + j}.png')
 
             for j, (dlatent) in enumerate(batch_w):
                 if i * minibatch_size + j < self.n_photos:
