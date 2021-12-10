@@ -263,7 +263,7 @@ class Generator3(Generator):
                     manip_w[j][0:8] = (manip_w[j] + coeff * self.direction)[0:8]
                 except:
                   pass
-                images = self.G.synthesis(manip_w, **self.synthesis_kwargs)
+                images = self.G.synthesis(manip_w)
                 # some text transformations to get rid of the problematic characters
                 coeff = str(coeff).replace('-','minus_')
                 coeff = coeff.replace('.','_')
@@ -272,7 +272,7 @@ class Generator3(Generator):
                 for j, image in enumerate(images):
                     if i * minibatch_size + j < self.n_photos:
                         numbers.append(i * minibatch_size + j)
-                        photos.append(img.cpu())
+                        photos.append(image.cpu())
                         coefficients.append(coeff)
                         if save == True:
                           PIL.Image.fromarray(image[0].cpu().numpy(), 'RGB').save(str(self.dir['images']) + f'/coeff_{coeff}__number_{i * minibatch_size + j}.png')
