@@ -256,15 +256,15 @@ class Generator3(Generator):
         all_w = self.__create_coordinates()
         for i in range(self.n_photos // minibatch_size + 1):
             batch_w  = all_w[i:(i+1) * minibatch_size]
-
+            print(batch_w)
             for k, coeff in enumerate(coeffs):
                 manip_w = batch_w.clone()
                 try:
                   for j in range(len(manip_w)):
                     manip_w[j][0:8] = (manip_w[j] + coeff * self.direction)[0:8]
                 except:
-                  pass
-                images = self.G.synthesis(manip_w)
+                  manip_w = batch_w.clone()
+                images = self.G.synthesis(manip_w, **self.synthesis_kwargs)
                 # some text transformations to get rid of the problematic characters
                 coeff = str(coeff).replace('-','minus_')
                 coeff = coeff.replace('.','_')
