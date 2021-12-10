@@ -277,7 +277,7 @@ class Generator3(Generator):
                         # photos.append(image.cpu())
                         coefficients.append(coeff)
                         if save == True:
-                            name = f'/coeff_{coeff}__number_{i * minibatch_size + j}.png' if n_levels>0 else f'{i * minibatch_size + j}.png'
+                            name = f'/coeff_{coeff}__number_{i * minibatch_size + j}.png' if self.n_levels>0 else f'/{i * minibatch_size + j}.png'
                             tf = Compose([
                                 lambda x: torch.clamp((x + 1) / 2, min=0, max=1)
                             ])
