@@ -233,10 +233,9 @@ class Generator3(Generator):
     def __create_coordinates(self):
 
         all_z =torch.randn([self.n_photos, self.G.mapping.z_dim], device=self.device)
-        self.all_w_stds = self.G.mapping(torch.randn([self.n_photos, self.G.mapping.z_dim], device=self.device), None).std(0) 
+        self.all_w_stds = self.G.mapping(torch.randn([10000, self.G.mapping.z_dim], device=self.device), None).std(0)
         all_w = (self.G.mapping(all_z, None, truncation_psi=self.truncation) - self.G.mapping.w_avg) / self.all_w_stds
-
-        return all_w
+        return all_w * self.all_w_stds + self.G.mapping.w_avg
 
 
     def generate(self, spit = False, save = True):
@@ -247,44 +246,41 @@ class Generator3(Generator):
         """
 
         coeffs = [i / self.n_levels * self.coefficient if self.n_levels > 0 else i for i in
-
                 range(-self.n_levels, self.n_levels + 1)]
         minibatch_size = 8
         # lists to store data for the images dataframe
         numbers = []
         coefficients = []
         photos = []
-
+        all_w = self.__create_coordinates()
         for i in range(self.n_photos // minibatch_size + 1):
-            all_w = self.__create_coordinates()
-            all_w = all_w * self.all_w_stds + self.G.mapping.w_avg
+            batch_w  = all_w[i:i * minibatch_size]
 
             for k, coeff in enumerate(coeffs):
-                manip_w = all_w.clone()
+                manip_w = batch_w.clone()
                 try:
-                  for j in range(len(all_w)):
+                  for j in range(len(manip_w)):
                     manip_w[j][0:8] = (manip_w[j] + coeff * self.direction)[0:8]
                 except:
-                  manip_w = all_w.clone()[0:8]
+                  pass
                 images = self.G.synthesis(manip_w, **self.synthesis_kwargs)
                 # some text transformations to get rid of the problematic characters
                 coeff = str(coeff).replace('-','minus_')
                 coeff = coeff.replace('.','_')
                 coeff = re.sub(r'(.)\1+', r'\1', coeff)
 
-                for j in range(len(images)):
+                for j, image in enumerate(images):
                     if i * minibatch_size + j < self.n_photos:
-                        img = images[j]
                         numbers.append(i * minibatch_size + j)
                         photos.append(img.cpu())
                         if save == True:
-                          PIL.Image.fromarray(img[0].cpu().numpy(), 'RGB').save(str(self.dir['images']) + f'/coeff_{coeff}__number_{i * minibatch_size + j}.png')
+                          PIL.Image.fromarray(image[0].cpu().numpy(), 'RGB').save(str(self.dir['images']) + f'/coeff_{coeff}__number_{i * minibatch_size + j}.png')
 
                 for j, (dlatent) in enumerate(images):
                     if i * minibatch_size + j < self.n_photos:
                       coefficients.append(coeff)
                       if save == True:
-                        np.save(str(self.dir["coordinates"]) + f'/coeff_{coeff}__number_{i * minibatch_size + j}' + '.npy', dlatent[0])
+                        np.save(str(self.dir["coordinates"]) + f'/{i * minibatch_size + j}' + '.npy', dlatent[0].cpu())
 
         if spit == True:
           all_dict = {"nr" : numbers, 'coefficients' : coefficients, 'photos' : photos}
