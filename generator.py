@@ -235,7 +235,6 @@ class Generator3(Generator):
         all_z =torch.randn([self.n_photos, self.G.mapping.z_dim], device=self.device)
         self.all_w_stds = self.G.mapping(torch.randn([10000, self.G.mapping.z_dim], device=self.device), None).std(0)
         all_w = (self.G.mapping(all_z, None, truncation_psi=self.truncation) - self.G.mapping.w_avg) / self.all_w_stds
-        print(all_w)
         return all_w * self.all_w_stds + self.G.mapping.w_avg
 
 
