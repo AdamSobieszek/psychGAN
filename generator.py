@@ -256,7 +256,7 @@ class Generator3(Generator):
         all_w = self.__create_coordinates()
         for i in range(self.n_photos // minibatch_size + 1):
             batch_w  = all_w[i:(i+1) * minibatch_size]
-            print(batch_w)
+
             for k, coeff in enumerate(coeffs):
                 manip_w = batch_w.clone()
                 try:
@@ -276,12 +276,13 @@ class Generator3(Generator):
                         photos.append(image.cpu())
                         coefficients.append(coeff)
                         if save == True:
-                          PIL.Image.fromarray(image[0].cpu().numpy(), 'RGB').save(str(self.dir['images']) + f'/coeff_{coeff}__number_{i * minibatch_size + j}.png')
+                            image = (image.permute(0, 2, 3, 1) * 127.5 + 128).clamp(0, 255).to(torch.uint8)
+                            PIL.Image.fromarray(image[0].cpu().numpy(), 'RGB').save(str(self.dir['images']) + f'/coeff_{coeff}__number_{i * minibatch_size + j}.png')
 
-            # for j, (dlatent) in enumerate(batch_w):
-            #     if i * minibatch_size + j < self.n_photos:
-            #       if save == True:
-            #         np.save(str(self.dir["coordinates"]) + f'/{i * minibatch_size + j}' + '.npy', dlatent[0].cpu())
+            for j, (dlatent) in enumerate(batch_w):
+                if i * minibatch_size + j < self.n_photos:
+                  if save == True:
+                    np.save(str(self.dir["coordinates"]) + f'/{i * minibatch_size + j}' + '.npy', dlatent[0].cpu())
 
         if spit == True:
           all_dict = {"nr" : numbers, 'coefficients' : coefficients, 'photos' : photos}
