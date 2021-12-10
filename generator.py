@@ -273,14 +273,14 @@ class Generator3(Generator):
                     if i * minibatch_size + j < self.n_photos:
                         numbers.append(i * minibatch_size + j)
                         photos.append(img.cpu())
+                        coefficients.append(coeff)
                         if save == True:
                           PIL.Image.fromarray(image[0].cpu().numpy(), 'RGB').save(str(self.dir['images']) + f'/coeff_{coeff}__number_{i * minibatch_size + j}.png')
 
-                for j, (dlatent) in enumerate(images):
-                    if i * minibatch_size + j < self.n_photos:
-                      coefficients.append(coeff)
-                      if save == True:
-                        np.save(str(self.dir["coordinates"]) + f'/{i * minibatch_size + j}' + '.npy', dlatent[0].cpu())
+            for j, (dlatent) in enumerate(batch_w):
+                if i * minibatch_size + j < self.n_photos:
+                  if save == True:
+                    np.save(str(self.dir["coordinates"]) + f'/{i * minibatch_size + j}' + '.npy', dlatent[0].cpu())
 
         if spit == True:
           all_dict = {"nr" : numbers, 'coefficients' : coefficients, 'photos' : photos}
