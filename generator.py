@@ -213,7 +213,7 @@ class GeneratorGraficzny(Generator):
     def __generate_preview_face_face_3(self):
         """__generate_preview_face_manip tylko że używa zmiennej preview_3faces zamist preview_face"""
 
-
+import gc
 class Generator3(Generator):
 
     def __init__(self, network_pkl, direction_name, coefficient, truncation, n_photos, n_levels,
@@ -233,11 +233,11 @@ class Generator3(Generator):
             pass
 
     def __create_coordinates(self):
-
-        all_z = torch.randn([self.n_photos, self.G.mapping.z_dim], device=self.device)
-        self.all_w_stds = self.G.mapping(torch.randn([10000, self.G.mapping.z_dim], device=self.device), None).std(0)
-        all_w = (self.G.mapping(all_z, None, truncation_psi=self.truncation) - self.G.mapping.w_avg) / self.all_w_stds
-        return all_w * self.all_w_stds + self.G.mapping.w_avg
+        with torch.no_grad():
+          all_z = torch.randn([self.n_photos, self.G.mapping.z_dim], device=self.device)
+          self.all_w_stds = self.G.mapping(torch.randn([10000, self.G.mapping.z_dim], device=self.device), None).std(0)
+          all_w = (self.G.mapping(all_z, None, truncation_psi=self.truncation) - self.G.mapping.w_avg) / self.all_w_stds
+          return all_w * self.all_w_stds + self.G.mapping.w_avg
 
 
 
@@ -272,6 +272,7 @@ class Generator3(Generator):
             return images
 
     def gen_loop(self, all_w, i, coeffs,save):
+      with torch.no_grad():
         batch_w = all_w[i:(i + 1) * self.minibatch_size]
 
         for k, coeff in enumerate(coeffs):
@@ -296,6 +297,7 @@ class Generator3(Generator):
                         ])
                         TF.to_pil_image(tf(image)).save(str(self.dir['images']) + name)
             del images, manip_w
+            gc.collect()
 
         for j, (dlatent) in enumerate(batch_w):
             if i * self.minibatch_size + j < self.n_photos:
@@ -304,7 +306,8 @@ class Generator3(Generator):
                             dlatent[0].cpu())
 
         del batch_w
-        torch.cuda.empy_cache()
+        gc.collect()
+        torch.cuda.empty_cache()
         return
 
     def generate(self, spit=False, save=True):
@@ -320,13 +323,15 @@ class Generator3(Generator):
         numbers = []
         coefficients = []
         # musiałem usunąć zapisywanie zdjęć do df bo łamie to szybko limity pamięci
-        all_w = self.__create_coordinates()
-        for i in range(self.n_photos // self.minibatch_size + 1):
-            self.gen_loop(all_w,i,coeffs,save)
-            torch.cuda.empy_cache()
+        with torch.no_grad():
+          all_w = self.__create_coordinates()
+          for i in range(self.n_photos // self.minibatch_size + 1):
+              self.gen_loop(all_w,i,coeffs,save)
+              torch.cuda.empty_cache()
 
         del all_w
-        torch.cuda.empy_cache()
+        gc.collect()
+        torch.cuda.empty_cache()
 
         if spit == True:
             all_dict = {"nr": numbers, 'coefficients': coefficients, 'photos': photos}
