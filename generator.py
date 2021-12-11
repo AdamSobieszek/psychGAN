@@ -271,7 +271,7 @@ class Generator3(Generator):
         if spit:
             return images
 
-    def gen_loop(self, all_w, i, coeffs):
+    def gen_loop(self, all_w, i, coeffs,save):
         batch_w = all_w[i:(i + 1) * self.minibatch_size]
 
         for k, coeff in enumerate(coeffs):
@@ -304,6 +304,7 @@ class Generator3(Generator):
                             dlatent[0].cpu())
 
         del batch_w
+        torch.cuda.empy_cache()
         return
 
     def generate(self, spit=False, save=True):
@@ -321,7 +322,8 @@ class Generator3(Generator):
         # musiałem usunąć zapisywanie zdjęć do df bo łamie to szybko limity pamięci
         all_w = self.__create_coordinates()
         for i in range(self.n_photos // self.minibatch_size + 1):
-            gen_loop(all_w,coeffs)
+            self.gen_loop(all_w,i,coeffs,save)
+            torch.cuda.empy_cache()
 
         del all_w
         torch.cuda.empy_cache()
