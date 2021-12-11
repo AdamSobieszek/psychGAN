@@ -7,4 +7,3 @@
 # regresja logistyczna
 
 # LOESS
-
