@@ -1,7 +1,7 @@
 import os
 import click
-import dnnlib
-import legacy
+import stylegan3.dnnlib
+import stylegan3.legacy
 import numpy as np
 import torch
 import PIL.Image
